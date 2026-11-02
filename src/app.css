@@ -1,0 +1,102 @@
+html { scroll-padding-top: 96px; }
+.navbar .logo { color: #111; text-decoration: none; }
+.hero-wrap { scroll-margin-top: 80px; }
+.mobile-menu { display: none; }
+.setup-banner {
+  position: fixed;
+  z-index: 1101;
+  inset: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 16px;
+  background: #fff4d8;
+  color: #614a16;
+  text-align: center;
+  font: 500 12px/1.5 'Poppins', sans-serif;
+}
+.setup-banner ~ .navbar { top: 34px; }
+.form-notice { margin: 0 0 18px; color: #614a16; font-size: 14px; }
+.button-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.contact-form .btn.outline { border: 2px solid #111; color: #111; background: transparent; }
+.contact-form .btn:disabled { cursor: wait; opacity: .65; }
+.admin-link {
+  border: 0;
+  background: transparent;
+  color: #bbb;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+}
+.admin-link:hover { color: #fff; }
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(12 12 12 / 58%);
+}
+.admin-panel {
+  width: min(820px, 100%);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  padding: 28px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 24%);
+}
+.admin-heading, .admin-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.admin-heading h2 { margin: 0 0 20px; }
+.admin-heading .section-subtitle { margin-bottom: 6px; color: #777; font-size: 12px; letter-spacing: 1.4px; }
+.close-admin { border: 0; background: transparent; font-size: 32px; line-height: 1; cursor: pointer; }
+.database-notice {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fff4d8;
+  color: #614a16;
+  font-size: 14px;
+}
+.admin-login { display: grid; gap: 12px; max-width: 420px; }
+.admin-login input, .content-editor {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  font: inherit;
+}
+.admin-login .btn { justify-self: start; border: 0; cursor: pointer; }
+.admin-toolbar { margin: 8px 0 16px; }
+.admin-toolbar p { color: #666; }
+.admin-toolbar .btn { cursor: pointer; }
+.editor-label { display: block; margin-bottom: 8px; font-weight: 600; }
+.content-editor {
+  min-height: 300px;
+  resize: vertical;
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.save-content { margin-top: 12px; border: 0; cursor: pointer; }
+.save-content:disabled { cursor: not-allowed; opacity: .5; }
+.admin-notice { margin-top: 14px; color: #555; }
+.admin-messages { margin-top: 28px; }
+.admin-messages h3 { margin-bottom: 12px; }
+.admin-message { padding: 14px 0; border-top: 1px solid #e8e8e8; overflow-wrap: anywhere; }
+.admin-message > div { display: flex; justify-content: space-between; gap: 12px; }
+.admin-message a { color: #333; }
+.admin-message time, .empty-messages { color: #777; font-size: 13px; }
+.admin-message p { margin-top: 10px; white-space: pre-wrap; }
+
+@media (max-width: 991px) {
+  .desktop-nav { display: none; }
+  .mobile-menu { display: block; position: relative; }
+  .mobile-menu .menu-icon { display: block; list-style: none; }
+  .mobile-menu .menu-icon::-webkit-details-marker { display: none; }
+  .mobile-menu .nav-links { display: flex; }
+  .setup-banner ~ .navbar { top: 42px; }
+}
+@media (max-width: 600px) {
+  .admin-panel { padding: 20px; }
+  .admin-toolbar, .admin-message > div { align-items: flex-start; flex-direction: column; }
+  .hero-right img { width: min(82vw, 380px); height: min(82vw, 380px); }
+}
