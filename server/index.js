@@ -6,7 +6,9 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import mongoose from "mongoose";
 import rateLimit from "express-rate-limit";
+import { Client as ObjectStorageClient } from "@replit/object-storage";
 import defaultContent from "../src/defaultContent.js";
+import { uploadPolicyFor, validateUploadedFile } from "./uploadValidation.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -15,6 +17,13 @@ const isProduction = process.env.NODE_ENV === "production";
 const mongoUri = process.env.MONGODB_URI;
 const adminPassword = process.env.ADMIN_PASSWORD;
 const sessionSecret = process.env.SESSION_SECRET;
+let objectStorage;
+const maxUploadBytes = 10 * 1024 * 1024;
+
+function getObjectStorage() {
+  if (!objectStorage) objectStorage = new ObjectStorageClient();
+  return objectStorage;
+}
 
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
@@ -57,6 +66,7 @@ app.use(session(sessionOptions));
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false });
 const messageLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false });
+const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
 const requireAdmin = (req, res, next) => {
   if (!req.session?.admin) return res.status(401).json({ error: "Sign in to access the admin area." });
   next();
@@ -192,6 +202,80 @@ app.post("/api/admin/logout", (req, res, next) => {
   });
 });
 
+app.post(
+  "/api/admin/uploads/:category",
+  requireAdmin,
+  databaseRequired,
+  uploadLimiter,
+  (req, res, next) => {
+    const contentType = (req.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const policy = uploadPolicyFor(req.params.category, contentType);
+    if (!policy) {
+      const message = req.params.category === "resume"
+        ? "Résumé uploads must be PDF files."
+        : "Photo uploads must be JPG, PNG, or WebP images.";
+      return res.status(415).json({ error: message });
+    }
+    const contentLength = Number(req.get("content-length"));
+    if (Number.isFinite(contentLength) && contentLength > policy.maxBytes) {
+      return res.status(413).json({ error: `This file is too large. The limit is ${policy.maxBytes / (1024 * 1024)} MB.` });
+    }
+    req.uploadPolicy = policy;
+    next();
+  },
+  express.raw({ type: () => true, limit: maxUploadBytes }),
+  async (req, res) => {
+    const validation = validateUploadedFile(req.params.category, req.uploadPolicy.contentType, req.body);
+    if (validation.error) return res.status(validation.status || 400).json({ error: validation.error });
+
+    const category = req.params.category;
+    const fileName = `${crypto.randomUUID()}.${validation.policy.extension}`;
+    const objectName = `portfolio-assets/${category}/${fileName}`;
+    try {
+      const result = await getObjectStorage().uploadFromBytes(objectName, req.body, { compress: false });
+      if (!result.ok) {
+        console.error("App Storage upload failed:", result.error?.message || result.error);
+        return res.status(503).json({ error: "File storage is unavailable. Enable App Storage for this Replit project and try again." });
+      }
+      res.status(201).json({ reference: `/api/assets/${category}/${fileName}` });
+    } catch (error) {
+      console.error("App Storage upload failed:", error.message);
+      res.status(503).json({ error: "File storage is unavailable. Enable App Storage for this Replit project and try again." });
+    }
+  },
+);
+
+app.get("/api/assets/:category/:fileName", async (req, res) => {
+  const { category, fileName } = req.params;
+  if (!["profile", "about", "project", "resume"].includes(category) ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp|pdf)$/i.test(fileName)) {
+    return res.status(404).end();
+  }
+  const extension = fileName.split(".").pop().toLowerCase();
+  const expectedExtensions = category === "resume" ? ["pdf"] : ["jpg", "png", "webp"];
+  if (!expectedExtensions.includes(extension)) return res.status(404).end();
+
+  try {
+    const result = await getObjectStorage().downloadAsBytes(`portfolio-assets/${category}/${fileName}`);
+    if (!result.ok) {
+      if (result.error?.statusCode === 404) return res.status(404).end();
+      console.error("App Storage download failed:", result.error?.message || result.error);
+      return res.status(502).end();
+    }
+    const mimeType = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", pdf: "application/pdf" }[extension];
+    res.set({
+      "Content-Type": mimeType,
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+    res.send(result.value[0]);
+  } catch (error) {
+    console.error("App Storage download failed:", error.message);
+    res.status(502).end();
+  }
+});
+
 app.get("/api/admin/messages", databaseRequired, requireAdmin, async (req, res, next) => {
   try {
     const messages = await ContactMessage.find().sort({ createdAt: -1 }).limit(100).lean();
@@ -201,7 +285,8 @@ app.get("/api/admin/messages", databaseRequired, requireAdmin, async (req, res, 
 
 app.use("/api", (error, req, res, next) => {
   console.error("API request failed:", error.message);
-  res.status(500).json({ error: "The request could not be completed. Please try again." });
+  const status = error.type === "entity.too.large" ? 413 : 500;
+  res.status(status).json({ error: status === 413 ? "This file is too large. Choose a smaller file and try again." : "The request could not be completed. Please try again." });
 });
 
 if (process.env.NODE_ENV !== "test") {

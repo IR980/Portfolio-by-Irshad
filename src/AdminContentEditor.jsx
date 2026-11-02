@@ -25,8 +25,50 @@ function Field({ label, value, onChange, hint, multiline = false, type = "text",
   );
 }
 
-function AssetReferenceField(props) {
-  return <Field {...props} hint="Use a project asset path (for example /PORT.jpg) or an HTTPS URL." />;
+function AssetReferenceField({ uploadCategory, accept, onUploadBusyChange, ...props }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState("");
+  const uploadId = useId();
+
+  async function uploadFile(event) {
+    const fileInput = event.currentTarget;
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    onUploadBusyChange?.(uploadId, true);
+    setUploadNotice("");
+    try {
+      const response = await fetch(`/api/admin/uploads/${uploadCategory}`, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not upload this file.");
+      props.onChange(result.reference);
+      setUploadNotice("Uploaded. Save changes to publish it.");
+    } catch (error) {
+      setUploadNotice(error.message || "Could not upload this file.");
+    } finally {
+      setUploading(false);
+      onUploadBusyChange?.(uploadId, false);
+      fileInput.value = "";
+    }
+  }
+
+  return (
+    <div className="asset-reference-field">
+      <Field {...props} hint="Use a project asset path or an HTTPS URL." />
+      {uploadCategory && (
+        <div className="asset-upload">
+          <label htmlFor={`upload-${uploadId}`}>{uploading ? "Uploading…" : "Upload a replacement"}</label>
+          <input id={`upload-${uploadId}`} type="file" accept={accept} onChange={uploadFile} disabled={uploading} />
+          <small>{uploadCategory === "resume" ? "PDF, up to 10 MB." : "JPG, PNG, or WebP, up to 5 MB."}</small>
+          {uploadNotice && <small role="status">{uploadNotice}</small>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ArrayEditor({ title, description, items, onAdd, children, maxItems = 40 }) {
@@ -86,6 +128,16 @@ export default function AdminContentEditor({ content, onSave, dbReady }) {
   const [draft, setDraft] = useState(content);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [activeUploads, setActiveUploads] = useState({});
+
+  function trackUpload(uploadId, isActive) {
+    setActiveUploads((current) => {
+      const next = { ...current };
+      if (isActive) next[uploadId] = true;
+      else delete next[uploadId];
+      return next;
+    });
+  }
 
   function update(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -151,9 +203,9 @@ export default function AdminContentEditor({ content, onSave, dbReady }) {
           <Field label="Headline" value={draft.headline} onChange={(value) => update("headline", value)} required maxLength={200} />
           <Field label="About you" value={draft.about} onChange={(value) => update("about", value)} multiline required maxLength={2000} />
           <Field label="WhatsApp number" value={draft.contactPhone} onChange={(value) => update("contactPhone", value)} hint="Include country code; enter digits only." maxLength={15} required />
-          <AssetReferenceField label="Profile photo" value={draft.portrait} onChange={(value) => update("portrait", value)} required />
-          <AssetReferenceField label="About photo" value={draft.aboutImage} onChange={(value) => update("aboutImage", value)} required />
-          <AssetReferenceField label="Résumé" value={draft.resume} onChange={(value) => update("resume", value)} required />
+          <AssetReferenceField label="Profile photo" value={draft.portrait} onChange={(value) => update("portrait", value)} uploadCategory="profile" accept="image/jpeg,image/png,image/webp" onUploadBusyChange={trackUpload} required />
+          <AssetReferenceField label="About photo" value={draft.aboutImage} onChange={(value) => update("aboutImage", value)} uploadCategory="about" accept="image/jpeg,image/png,image/webp" onUploadBusyChange={trackUpload} required />
+          <AssetReferenceField label="Résumé" value={draft.resume} onChange={(value) => update("resume", value)} uploadCategory="resume" accept="application/pdf" onUploadBusyChange={trackUpload} required />
         </div>
       </fieldset>
 
@@ -214,7 +266,7 @@ export default function AdminContentEditor({ content, onSave, dbReady }) {
             <div className="editor-grid">
               <Field label="Project name" value={project.title} onChange={(value) => updateItem("projects", index, "title", value)} maxLength={200} required />
               <Field label="Technologies" value={project.technologies} onChange={(value) => updateItem("projects", index, "technologies", value)} maxLength={300} required />
-              <AssetReferenceField label="Project image" value={project.image} onChange={(value) => updateItem("projects", index, "image", value)} required />
+              <AssetReferenceField label="Project image" value={project.image} onChange={(value) => updateItem("projects", index, "image", value)} uploadCategory="project" accept="image/jpeg,image/png,image/webp" onUploadBusyChange={trackUpload} required />
               <Field label="Project link" value={project.url} onChange={(value) => updateItem("projects", index, "url", value)} hint="Use an HTTPS link to the live project or repository." maxLength={1000} required />
             </div>
           </div>
@@ -245,7 +297,7 @@ export default function AdminContentEditor({ content, onSave, dbReady }) {
       {notice && <p className="admin-notice" role="status">{notice}</p>}
       <div className="editor-actions">
         <button className="btn outline" type="button" onClick={() => { setDraft(content); setNotice("Unsaved edits discarded."); }} disabled={busy}>Discard edits</button>
-        <button className="btn primary" type="submit" disabled={busy || !dbReady}>{busy ? "Saving…" : "Save changes"}</button>
+        <button className="btn primary" type="submit" disabled={busy || !dbReady || Object.keys(activeUploads).length > 0}>{busy ? "Saving…" : "Save changes"}</button>
       </div>
     </form>
   );

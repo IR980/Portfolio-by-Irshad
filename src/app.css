@@ -94,6 +94,12 @@ html { scroll-padding-top: 96px; }
 }
 .editor-field textarea { min-height: 92px; resize: vertical; }
 .editor-field small { color: #707070; font-size: 12px; font-weight: 400; line-height: 1.5; }
+.asset-reference-field { display: grid; min-width: 0; gap: 10px; }
+.asset-upload { display: grid; gap: 6px; font-size: 13px; }
+.asset-upload label { font-weight: 500; }
+.asset-upload input { max-width: 100%; font: inherit; font-size: 12px; }
+.asset-upload small { color: #707070; font-size: 12px; line-height: 1.5; }
+.asset-upload input:disabled { cursor: wait; opacity: .65; }
 .editor-list { display: grid; gap: 12px; }
 .editor-row, .editor-card {
   display: grid;

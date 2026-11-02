@@ -246,7 +246,7 @@ function AdminPanel({ onClose, content, onSaveContent, dbReady }) {
           </form>
         ) : (
           <>
-            <div className="admin-toolbar"><p>Update profile details, skills, projects, and social links. Changes are stored in MongoDB.</p><button className="btn outline" onClick={logout}>Sign out</button></div>
+            <div className="admin-toolbar"><p>Update portfolio content in MongoDB and upload photos or your résumé to Replit App Storage.</p><button className="btn outline" onClick={logout}>Sign out</button></div>
             <AdminContentEditor content={content} onSave={onSaveContent} dbReady={dbReady} />
             <div className="admin-messages"><h3>Contact messages ({messages.length})</h3>
               {messages.length ? messages.map((message) => (
