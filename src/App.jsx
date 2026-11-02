@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import defaultContent from "./defaultContent.js";
+import AdminContentEditor from "./AdminContentEditor.jsx";
 
 const iconClasses = {
   github: "fab fa-github",
@@ -185,7 +186,6 @@ function Portfolio({ content, onAdmin }) {
 function AdminPanel({ onClose, content, onSaveContent, dbReady }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
-  const [editorValue, setEditorValue] = useState(JSON.stringify(content, null, 2));
   const [messages, setMessages] = useState([]);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -206,7 +206,6 @@ function AdminPanel({ onClose, content, onSaveContent, dbReady }) {
   }
 
   useEffect(() => { checkSession(); }, []);
-  useEffect(() => { setEditorValue(JSON.stringify(content, null, 2)); }, [content]);
   useEffect(() => {
     if (authenticated) loadMessages().catch((error) => setNotice(error.message));
   }, [authenticated]);
@@ -225,22 +224,6 @@ function AdminPanel({ onClose, content, onSaveContent, dbReady }) {
       setPassword("");
       setNotice("Signed in.");
     } catch (error) { setNotice(error.message); }
-    finally { setBusy(false); }
-  }
-
-  async function save() {
-    setBusy(true);
-    setNotice("");
-    try {
-      const data = JSON.parse(editorValue);
-      const response = await fetch("/api/content", {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not save portfolio content.");
-      onSaveContent(result.content);
-      setNotice("Portfolio content saved.");
-    } catch (error) { setNotice(error instanceof SyntaxError ? "The content needs to be valid JSON." : error.message); }
     finally { setBusy(false); }
   }
 
@@ -263,10 +246,8 @@ function AdminPanel({ onClose, content, onSaveContent, dbReady }) {
           </form>
         ) : (
           <>
-            <div className="admin-toolbar"><p>Edit the portfolio as JSON. Changes are stored in MongoDB.</p><button className="btn outline" onClick={logout}>Sign out</button></div>
-            <label className="editor-label" htmlFor="content-editor">Portfolio content</label>
-            <textarea id="content-editor" className="content-editor" spellCheck="false" value={editorValue} onChange={(e) => setEditorValue(e.target.value)} />
-            <button className="btn primary save-content" onClick={save} disabled={busy || !dbReady}>{busy ? "Saving…" : "Save changes"}</button>
+            <div className="admin-toolbar"><p>Update profile details, skills, projects, and social links. Changes are stored in MongoDB.</p><button className="btn outline" onClick={logout}>Sign out</button></div>
+            <AdminContentEditor content={content} onSave={onSaveContent} dbReady={dbReady} />
             <div className="admin-messages"><h3>Contact messages ({messages.length})</h3>
               {messages.length ? messages.map((message) => (
                 <article className="admin-message" key={message._id}>

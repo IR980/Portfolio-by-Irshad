@@ -126,7 +126,7 @@ app.get("/api/content", databaseRequired, async (req, res, next) => {
     const portfolio = await Portfolio.findOneAndUpdate(
       { _id: "portfolio" },
       { $setOnInsert: { data: defaultContent, updatedAt: new Date() } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     ).lean();
     res.json({ content: portfolio.data });
   } catch (error) { next(error); }
@@ -138,7 +138,7 @@ app.put("/api/content", databaseRequired, requireAdmin, async (req, res, next) =
     const portfolio = await Portfolio.findOneAndUpdate(
       { _id: "portfolio" },
       { $set: { data: req.body, updatedAt: new Date() } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     ).lean();
     res.json({ content: portfolio.data });
   } catch (error) { next(error); }
