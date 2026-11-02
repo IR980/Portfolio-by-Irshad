@@ -6,6 +6,7 @@ const iconClasses = {
   linkedin: "fab fa-linkedin",
   instagram: "fab fa-instagram",
 };
+const contactEmailEndpoint = "https://formsubmit.co/ajax/mohammadirshad9163@gmail.com";
 
 function Icon({ name }) {
   return <i className={`fas fa-${name}`} aria-hidden="true" />;
@@ -21,7 +22,25 @@ function Portfolio({ content, onAdmin }) {
     event.preventDefault();
     setSending(true);
     setNotice("");
+
+    let emailSubmitted = false;
     try {
+      const emailData = new FormData();
+      emailData.append("name", form.name);
+      emailData.append("email", form.email);
+      emailData.append("message", form.message);
+
+      const emailResponse = await fetch(contactEmailEndpoint, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: emailData,
+      });
+      const emailResult = await emailResponse.json().catch(() => null);
+      if (!emailResponse.ok || !emailResult?.success || emailResult.success === "false") {
+        throw new Error("We couldn't submit your message. Please try again later.");
+      }
+      emailSubmitted = true;
+
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,9 +49,14 @@ function Portfolio({ content, onAdmin }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Your message could not be sent.");
       setForm({ name: "", email: "", message: "" });
-      setNotice("Thanks — your message has been sent.");
+      setNotice("Your message was submitted. Thank you for reaching out.");
     } catch (error) {
-      setNotice(error.message);
+      if (emailSubmitted) {
+        setForm({ name: "", email: "", message: "" });
+        setNotice("Your message was submitted for email delivery, but could not be saved in the admin area.");
+      } else {
+        setNotice(error.message || "We couldn't submit your message. Please try again later.");
+      }
     } finally {
       setSending(false);
     }
